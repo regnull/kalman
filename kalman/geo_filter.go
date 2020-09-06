@@ -16,6 +16,9 @@ const (
 	incline          = 5   // Degrees, used to estimate altitude random step.
 )
 
+var sqrtOf2 = math.Sqrt(2)                              // Pre-computed to speed up computations.
+var inclineFactor = math.Sin(incline * math.Pi / 180.0) // Pre-computed to speed up computations.
+
 // GeoFilter is a Kalman filter that deals with geographic coordinates and altitude.
 type GeoFilter struct {
 	filter *Filter
@@ -42,6 +45,7 @@ type GeoObserved struct {
 	VerticalAccuracy   float64 // Vertical accuracy, in meters.
 }
 
+// GeoEstimated contains estimated location, obtained by processing several observed locations.
 type GeoEstimated struct {
 	Lat, Lng, Altitude float64
 	Speed              float64
@@ -49,17 +53,17 @@ type GeoEstimated struct {
 	HorizontalAccuracy float64
 }
 
+// NewGeoFilter creates and returns a new GeoFilter.
 func NewGeoFilter(d *GeoProcessNoise) (*GeoFilter, error) {
 	metersPerDegreeLat := geo.FastMetersPerDegreeLat(d.BaseLat)
 	metersPerDegreeLng := geo.FastMetersPerDegreeLng(d.BaseLat)
-	sqrtOf2 := math.Sqrt(2)
-	inclineRad := incline * math.Pi / 180.0
+
 	dx := d.DistancePerSecond / sqrtOf2 / metersPerDegreeLat
 	dy := d.DistancePerSecond / sqrtOf2 / metersPerDegreeLng
-	dz := d.DistancePerSecond * math.Sin(inclineRad)
+	dz := d.DistancePerSecond * inclineFactor
 	dsvx := d.SpeedPerSecond / sqrtOf2 / metersPerDegreeLat
 	dsvy := d.SpeedPerSecond / sqrtOf2 / metersPerDegreeLng
-	dsvz := d.SpeedPerSecond * math.Sin(inclineRad)
+	dsvz := d.SpeedPerSecond * inclineFactor
 	f, err := NewFilter(&ProcessNoise{
 		ST:  1.0,
 		SX:  dx,
