@@ -7,7 +7,10 @@ import (
 	"github.com/regnull/kalman"
 )
 
+// Time passed between observed data points.
 var timeDelta = 10.0
+
+// Observed data points.
 var observed = []kalman.GeoObserved{
 	{
 		Lat:                41.154874,
@@ -61,17 +64,25 @@ func main() {
 	var err error
 	for _, point := range observed {
 		if filter == nil {
+			// Initialize Kalman filter.
 			filter, err = kalman.NewGeoFilter(&kalman.GeoProcessNoise{
-				BaseLat:           point.Lat,
+				// We assume the measurements will take place at the approximately the
+				// same location, so that we can disregard the earth's curvature.
+				BaseLat: point.Lat,
+				// How much do we expect the user to move, meters per second.
 				DistancePerSecond: 1.0,
-				SpeedPerSecond:    0.1,
+				// How much do we expect the user's speed to change, meters per second squared.
+				SpeedPerSecond: 0.1,
 			})
 			if err != nil {
 				fmt.Printf("failed to initialize Kalman filter: %s\n", err)
 				os.Exit(1)
 			}
 		}
+		// Observe the next data point.
 		err = filter.Observe(timeDelta, &point)
+		// Sometimes the filter may return error, although this should not happen under any
+		// realistic curcumstances.
 		if err != nil {
 			fmt.Printf("error observing data: %s\n", err)
 		}
