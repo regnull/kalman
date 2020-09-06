@@ -26,7 +26,11 @@ processNoise := &kalman.GeoProcessNoise{
     // How much do we expect user speed to change, meters per second squared.
     SpeedPerSecond: 0.1,
 }
-filter := kalman.NewGeoFilter(processNoise)
+filter, err := kalman.NewGeoFilter(processNoise)
+if err != nil {
+    fmt.Printf("error initializing Kalman filter: %s", err)
+    os.Exit(1)
+}
 
 // Process observations.
 observed := &kalman.GeoObserved{
