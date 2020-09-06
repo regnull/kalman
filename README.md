@@ -12,55 +12,99 @@ implementation may be used to process GPS measurements from mobile devices to pr
 
 ## How to Use
 
-To use, you first create an instance of GeoFilter, passing the arguments for process noise. The process noise is basically how much
-you expect the user to move, per second.
+See the example here:
+
+https://github.com/regnull/kalman/blob/master/example/main.go
+
+Basically, using Kalman filter involves the following steps:
+
+* Estimate the process noise
+* Create Kalman filter
+* Feed observed values to the filter, one by one
+* Get the estimated location, hopefully with better precision than any of the observed points
+
+### Estimate the process noise
+
+Process noise tells the filter how much do we expect the user to move, per second. Knowing this value allows the algorithm to estimate how much of the difference between expected and actual values can be attributed to the actual user motion.
+
+Here, we create the process noise struct:
 
 ```
-import "github.com/regnull/kalman/kalman"
-
+// Estimate process noise.
 processNoise := &kalman.GeoProcessNoise{
-    // Base latitude used to compute distances. Can be taken from user's location.
-    BaseLat: 43.0,
-    // How much do we expect user to move, meters per second.
+    // We assume the measurements will take place at the approximately the
+    // same location, so that we can disregard the earth's curvature.
+    BaseLat: point.Lat,
+    // How much do we expect the user to move, meters per second.
     DistancePerSecond: 1.0,
-    // How much do we expect user speed to change, meters per second squared.
+    // How much do we expect the user's speed to change, meters per second squared.
     SpeedPerSecond: 0.1,
 }
-filter, err := kalman.NewGeoFilter(processNoise)
+```
+
+You must assign non-zero values to DistancePerSecond and SpeedPerSecond, otherwise you will get an error when creating an instance of the filter.
+
+### Create Kalman filter
+
+After you create process noise struct, pass it to NetGeoFilter:
+
+```
+// Initialize Kalman filter.
+filter, err = kalman.NewGeoFilter(processNoise)
 if err != nil {
-    fmt.Printf("error initializing Kalman filter: %s", err)
+    fmt.Printf("failed to initialize Kalman filter: %s\n", err)
     os.Exit(1)
 }
+```
 
-// Process observations.
-observed := &kalman.GeoObserved{
-    Lat: 43.0001,
-    Lng: -71.0001,
-    Altitude: 10.0,
-    Speed: 1.0,
-    Direction: 45.0,
-    DirectionAccuracy: 1.0,
-    HorizontalAccuracy: 55.0,
-    VerticalAccuracy: 10.0,
+You might get an error back if the filter doesn't like your process noise values.
+
+### Feed observed values to the filter
+
+GeoFilter.Observe() takes two arguments, the time passed since the last measurement and the new observed value. Easy enough.
+
+```
+// Observe the next data point.
+err = filter.Observe(timeDelta, &point)
+// Sometimes the filter may return error, although this should not happen under any
+// realistic curcumstances.
+if err != nil {
+    fmt.Printf("error observing data: %s\n", err)
 }
-// First argument to filter.Observe() is the time since last observation.
-if err := filter.Observe(0.0, observed); err != nil {
-    fmt.Printf("error processing location: %s", err)
+```
+
+Where point contains data like this:
+
+```
+kalman.GeoObserved { 
+    Lat:                41.154874,
+    Lng:                -73.773139,
+    Altitude:           105.0,
+    Speed:              0.0,
+    SpeedAccuracy:      0.1,
+    HorizontalAccuracy: 100.0,
+    VerticalAccuracy:   10.0,
 }
+```
 
-// Observe more locations.
-// ...
+### Get the estimated values
 
-// Get the best estimate of the actual user location.
+Finally, get the estimated values obtained by processing the observed values. 
+
+```
 estimated := filter.Estimate()
-fmt.Printf("lat: %f, lng: %f\n", estimated.Lat, estimated.Lng)
+fmt.Printf("Estimated lat: %f\n", estimated.Lat)
+fmt.Printf("Estimated lng: %f\n", estimated.Lng)
+fmt.Printf("Estimated alt: %f\n", estimated.Altitude)
+fmt.Printf("Estimated speed: %f\n", estimated.Speed)
+fmt.Printf("Estimated horizontal accuracy: %f\n", estimated.HorizontalAccuracy)
 ```
 
 ## License
 
 This library is published under MIT license:
 
-Copyright 2020 github.com/regnull
+Copyright 2020 Leonid Gorkin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -70,4 +114,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Status
 
-Still work in progress!
+Work in progress.

@@ -64,8 +64,8 @@ func main() {
 	var err error
 	for _, point := range observed {
 		if filter == nil {
-			// Initialize Kalman filter.
-			filter, err = kalman.NewGeoFilter(&kalman.GeoProcessNoise{
+			// Estimate process noise.
+			processNoise := &kalman.GeoProcessNoise{
 				// We assume the measurements will take place at the approximately the
 				// same location, so that we can disregard the earth's curvature.
 				BaseLat: point.Lat,
@@ -73,7 +73,9 @@ func main() {
 				DistancePerSecond: 1.0,
 				// How much do we expect the user's speed to change, meters per second squared.
 				SpeedPerSecond: 0.1,
-			})
+			}
+			// Initialize Kalman filter.
+			filter, err = kalman.NewGeoFilter(processNoise)
 			if err != nil {
 				fmt.Printf("failed to initialize Kalman filter: %s\n", err)
 				os.Exit(1)
